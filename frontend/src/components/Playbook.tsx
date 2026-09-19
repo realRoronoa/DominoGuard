@@ -1,13 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { ArrowUpRight, Check, ShieldAlert, CheckCircle2, Lock, Terminal } from "lucide-react";
+import { Check, ShieldCheck, Lock, X, ArrowUpRight, Terminal } from "lucide-react";
 import { SimulationResult } from "../types";
 
-export function Playbook({ items }: { items: SimulationResult["playbook"] }) {
+interface PlaybookModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  items: SimulationResult["playbook"];
+}
+
+export function Playbook({ isOpen, onClose, items }: PlaybookModalProps) {
   const [checked, setChecked] = useState<Record<number, boolean>>({ 0: false, 1: false });
   const [contained, setContained] = useState(false);
-  const [showCli, setShowCli] = useState(false);
+
+  if (!isOpen) return null;
 
   function toggle(idx: number) {
     setChecked((prev) => ({ ...prev, [idx]: !prev[idx] }));
@@ -19,118 +26,113 @@ export function Playbook({ items }: { items: SimulationResult["playbook"] }) {
   }
 
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-[#0c0e17]/80 p-5 sm:p-6 backdrop-blur-xl">
-      {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-white/[0.06]">
-        <div>
-          <h3 className="font-heading text-sm font-bold text-white tracking-wide">
-            Lockdown Playbook
-          </h3>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Execute in order to halt the cascade immediately
-          </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-xl rounded-3xl bg-white p-6 sm:p-7 border border-[#e8dfd5] shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between pb-4 border-b border-[#f4ede4]">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-[#e6f4f1] text-[#359381] flex items-center justify-center font-bold">
+              <ShieldCheck size={18} />
+            </div>
+            <div>
+              <h3 className="font-heading text-base font-bold text-[#1c1917]">
+                Defensive Lockdown Playbook
+              </h3>
+              <p className="text-xs text-[#78716c]">
+                Execute in order to halt the cascade immediately
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-[#f4ede4] hover:bg-[#e8dfd5] flex items-center justify-center text-[#78716c] transition-colors"
+          >
+            <X size={15} />
+          </button>
         </div>
-        <span className="font-code text-xs font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full">
-          {items.length} Action Steps
-        </span>
-      </div>
 
-      {/* Checklist Steps */}
-      <div className="mt-4 space-y-2.5">
-        {items.map((item, index) => {
-          const isDone = !!checked[index];
-          return (
-            <div
-              key={index}
-              onClick={() => toggle(index)}
-              className={`flex items-start gap-3 rounded-xl border p-3.5 cursor-pointer transition-all ${
-                isDone
-                  ? "border-emerald-500/30 bg-emerald-500/[0.05] text-zinc-300"
-                  : "border-white/[0.06] bg-white/[0.02] text-white hover:border-white/15"
-              }`}
-            >
-              {/* Checkbox */}
+        {/* Action Steps */}
+        <div className="my-5 space-y-3">
+          {items.map((item, index) => {
+            const isDone = !!checked[index];
+            return (
               <div
-                className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all ${
+                key={index}
+                onClick={() => toggle(index)}
+                className={`flex items-start gap-3 p-3.5 rounded-2xl border transition-all cursor-pointer ${
                   isDone
-                    ? "border-emerald-400 bg-emerald-400 text-black"
-                    : "border-zinc-700 bg-transparent"
+                    ? "bg-[#e9f4f1] border-[#359381]/40 text-[#1c1917]"
+                    : "bg-[#faf8f5] border-[#e8dfd5] text-[#1c1917] hover:border-[#d6c9bc]"
                 }`}
               >
-                {isDone && <Check size={11} className="stroke-[3]" />}
-              </div>
-
-              {/* Text */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-1">
-                  <span className="font-heading text-xs font-bold leading-tight">
-                    Step {index + 1}: {item.title}
-                  </span>
-                  <span className="font-code text-[9px] text-zinc-500 uppercase">
-                    {index === 0 ? "P0 Urgent" : index === 1 ? "P1 High" : "P2 Moderate"}
-                  </span>
-                </div>
-                <div className="text-[11px] text-zinc-400 leading-snug mt-1">
-                  {item.description}
+                <div
+                  className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center border transition-all ${
+                    isDone
+                      ? "bg-[#359381] border-[#359381] text-white"
+                      : "border-[#a8a29e] bg-white"
+                  }`}
+                >
+                  {isDone && <Check size={12} className="stroke-[3]" />}
                 </div>
 
-                {item.actionUrl && (
-                  <a
-                    href={item.actionUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="mt-2 inline-flex items-center gap-1 font-code text-[10px] text-cyan-400 hover:underline"
-                  >
-                    <span>Open security settings</span>
-                    <ArrowUpRight size={11} />
-                  </a>
-                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="font-heading text-xs font-bold">
+                      Step {index + 1}: {item.title}
+                    </span>
+                    <span className="text-[10px] font-bold uppercase text-[#e85d43]">
+                      {index === 0 ? "P0 Urgent" : "P1 High"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#78716c] mt-0.5 leading-snug">
+                    {item.description}
+                  </p>
+                  {item.actionUrl && (
+                    <a
+                      href={item.actionUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-[#359381] hover:underline"
+                    >
+                      <span>Open account console</span>
+                      <ArrowUpRight size={11} />
+                    </a>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
 
-      {/* One-Click Containment CTA */}
-      <button
-        onClick={handleQuarantine}
-        className={`mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-3 px-4 font-heading text-xs font-bold uppercase tracking-wider transition-all shadow-md active:scale-[0.98] ${
-          contained
-            ? "bg-emerald-500 text-black shadow-emerald-500/30"
-            : "bg-gradient-to-r from-emerald-500 to-cyan-500 text-black shadow-emerald-500/20 hover:brightness-110"
-        }`}
-      >
-        {contained ? (
-          <>
-            <CheckCircle2 size={16} />
-            <span>Perimeter Containment Active · All Sessions Revoked</span>
-          </>
-        ) : (
-          <>
-            <Lock size={14} />
-            <span>One-Click Automated Containment</span>
-          </>
-        )}
-      </button>
-
-      {/* CLI Script Accordion */}
-      <div className="mt-3 pt-3 border-t border-white/[0.06] flex items-center justify-between text-xs font-code text-zinc-500">
+        {/* Containment CTA */}
         <button
-          onClick={() => setShowCli(!showCli)}
-          className="flex items-center gap-1.5 hover:text-zinc-300 transition-colors"
+          onClick={handleQuarantine}
+          className={`w-full py-3.5 px-5 rounded-2xl font-heading text-xs font-bold uppercase tracking-wider text-white transition-all shadow-md ${
+            contained
+              ? "bg-[#359381] shadow-[#359381]/30"
+              : "bg-[#e85d43] hover:bg-[#d64e35] shadow-[#e85d43]/30"
+          }`}
         >
-          <Terminal size={12} />
-          <span>{showCli ? "Hide CLI Command" : "View Quarantine CLI Script"}</span>
+          {contained ? (
+            <span className="flex items-center justify-center gap-2">
+              <Check size={15} />
+              <span>Perimeter Locked · All Sessions Revoked in 218ms</span>
+            </span>
+          ) : (
+            <span className="flex items-center justify-center gap-2">
+              <Lock size={15} />
+              <span>Execute One-Click Automated Lockdown</span>
+            </span>
+          )}
         </button>
-        <span>MITRE ATT&CK v14.1</span>
-      </div>
 
-      {showCli && (
-        <pre className="mt-2 p-2.5 rounded-lg bg-[#040508] border border-white/[0.06] font-code text-[10px] text-zinc-300 overflow-x-auto">
-          dominoguard-cli revoke --identity "user@mesh.internal" --kill-sessions all --treasury-lockout true
-        </pre>
-      )}
+        {/* CLI Script helper */}
+        <div className="mt-4 pt-3 border-t border-[#f4ede4] flex items-center justify-between text-[11px] text-[#78716c]">
+          <span className="font-code">dominoguard-cli revoke --all</span>
+          <span className="font-semibold text-[#359381]">MITRE ATT&CK v14.1</span>
+        </div>
+      </div>
     </div>
   );
 }
