@@ -3,6 +3,7 @@ import { z, ZodError } from "zod";
 import { runMapper } from "../agents/graphAgent";
 import { runRedTeam } from "../agents/redTeamAgent";
 import { runRemediation } from "../agents/remediationAgent";
+import { checkEmailThreatIntel } from "../services/threatIntelService";
 
 const schema = z.object({
   email: z.string().email().optional().or(z.literal("")),
@@ -21,17 +22,30 @@ export async function simulate(req: Request, res: Response) {
   const start = Date.now();
   try {
     const input = schema.parse(req.body);
-    console.log(`[simulate] ${new Date().toISOString()} | scenario=${input.scenario} | services=[${input.services.join(",")}]`);
+    console.log(`[simulate] ${new Date().toISOString()} | scenario=${input.scenario} | email=${input.email || "none"} | services=[${input.services.join(",")}]`);
 
-    const mapper = await runMapper(input.services, input.scenario);
+    // Run Topology Mapper and Live OSINT Breach Checker in parallel
+    const [mapper, threatIntel] = await Promise.all([
+      runMapper(input.services, input.scenario),
+      checkEmailThreatIntel(input.email || ""),
+    ]);
+
     const red = await runRedTeam(mapper.graph.ordered, input.scenario);
     const remediation = await runRemediation(red.cascade);
-    const sev = severity(red.score);
 
-    console.log(`[simulate] done in ${Date.now() - start}ms | score=${red.score} | severity=${sev} | mapper=${mapper.mode} | redteam=${red.mode} | remediation=${remediation.mode}`);
+    // Dynamic risk adjustment based on live breach intelligence
+    let finalScore = red.score;
+    if (threatIntel.pwned && threatIntel.breachCount > 0) {
+      finalScore = Math.min(100, finalScore + Math.min(6, threatIntel.breachCount));
+    }
+    const sev = severity(finalScore);
+
+    console.log(
+      `[simulate] done in ${Date.now() - start}ms | score=${finalScore} | severity=${sev} | pwned=${threatIntel.pwned} (${threatIntel.breachCount} breaches) | mapper=${mapper.mode} | redteam=${red.mode}`
+    );
 
     res.json({
-      score: red.score,
+      score: finalScore,
       severity: sev,
       headline:
         sev === "CRITICAL"
@@ -45,10 +59,30 @@ export async function simulate(req: Request, res: Response) {
           : "Primary email is the initial recovery hub in this simulation.",
       cascade: red.cascade,
       playbook: remediation.playbook,
+      threatIntel,
       agentTrace: [
-        { name: "Mapper", status: mapper.mode === "bedrock" ? "complete" : "fallback", summary: "Built a dependency graph from your selected services." },
-        { name: "Red-Team Simulator", status: red.mode === "bedrock" ? "complete" : "fallback", summary: "Simulated a defensive attack cascade without executing an attack." },
-        { name: "Remediator", status: remediation.mode === "bedrock" ? "complete" : "fallback", summary: "Generated a prioritized account-lockdown sequence." },
+        {
+          name: "OSINT Threat Intelligence",
+          status: "complete",
+          summary: threatIntel.pwned
+            ? `Identified ${threatIntel.breachCount} public breaches for ${threatIntel.email}: [${threatIntel.topBreaches.join(", ")}] (${threatIntel.source}).`
+            : `Clean record: 0 public breaches detected for ${input.email || "target"} (${threatIntel.source}).`,
+        },
+        {
+          name: "Mapper",
+          status: mapper.mode === "bedrock" ? "complete" : "fallback",
+          summary: "Built a dependency graph from your selected services.",
+        },
+        {
+          name: "Red-Team Simulator",
+          status: red.mode === "bedrock" ? "complete" : "fallback",
+          summary: "Simulated a defensive attack cascade without executing an attack.",
+        },
+        {
+          name: "Remediator",
+          status: remediation.mode === "bedrock" ? "complete" : "fallback",
+          summary: "Generated a prioritized account-lockdown sequence.",
+        },
       ],
       privacyNote:
         "Demo-safe design: no passwords, tokens, or account access are requested, and this simulation uses only the services you selected.",

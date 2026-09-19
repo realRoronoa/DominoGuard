@@ -131,6 +131,7 @@ export default function Home() {
           onTriggerSimulation={() => runSimulation(scenario, services, email)}
           onOpenPlaybook={() => setIsPlaybookOpen(true)}
           onScrollToAttackPath={scrollToAttackPath}
+          threatIntel={result?.threatIntel}
         />
 
         {/* Main Content Dashboard */}

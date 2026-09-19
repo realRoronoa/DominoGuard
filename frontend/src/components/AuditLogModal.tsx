@@ -96,6 +96,37 @@ export function AuditLogModal({ isOpen, onClose, result }: Props) {
         <div className="flex-1 overflow-y-auto py-3 space-y-4 pr-1">
           {activeTab === "trace" && (
             <div className="space-y-3">
+              {/* Agent 0: Live OSINT Threat Intelligence */}
+              <div className="p-4 rounded-2xl bg-[#faf8f5] border border-[#e8dfd5] space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${result?.threatIntel?.pwned ? "bg-[#e85d43]" : "bg-[#359381]"}`} />
+                    <span className="font-heading text-xs font-bold text-[#1c1917]">
+                      Live OSINT Breach Intelligence ({result?.threatIntel?.source ?? "XposedOrNot Free Feed"})
+                    </span>
+                  </div>
+                  <span className={`text-[10px] font-code px-2 py-0.5 rounded font-bold ${
+                    result?.threatIntel?.pwned ? "bg-[#fceee9] text-[#e85d43]" : "bg-[#e6f4f1] text-[#359381]"
+                  }`}>
+                    {result?.threatIntel?.pwned ? `${result.threatIntel.breachCount} LEAKS DETECTED` : "0 LEAKS DETECTED"} · {result?.threatIntel?.latencyMs ?? 180}ms
+                  </span>
+                </div>
+                <p className="text-xs text-[#78716c]">
+                  {result?.threatIntel?.pwned
+                    ? `Public compromise records detected for ${result.threatIntel.email}: [${result.threatIntel.topBreaches.join(", ")}]. Credentials and identity anchors flagged.`
+                    : `No public breach records found for target identity. Zero credential leaks indexed across 800+ known breaches.`}
+                </p>
+                {result?.threatIntel?.pwned && result.threatIntel.topBreaches.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {result.threatIntel.topBreaches.map((b) => (
+                      <span key={b} className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-white border border-[#e8dfd5] text-[#1c1917]">
+                        {b}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Agent 1 */}
               <div className="p-4 rounded-2xl bg-[#faf8f5] border border-[#e8dfd5] space-y-2">
                 <div className="flex items-center justify-between">

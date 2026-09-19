@@ -12,6 +12,8 @@ import {
   ArrowRight,
 } from "lucide-react";
 
+import { ThreatIntel } from "../types";
+
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
@@ -21,6 +23,7 @@ interface SidebarProps {
   onTriggerSimulation: () => void;
   onOpenPlaybook: () => void;
   onScrollToAttackPath: () => void;
+  threatIntel?: ThreatIntel;
 }
 
 export function Sidebar({
@@ -32,6 +35,7 @@ export function Sidebar({
   onTriggerSimulation,
   onOpenPlaybook,
   onScrollToAttackPath,
+  threatIntel,
 }: SidebarProps) {
   const [emailSaved, setEmailSaved] = useState(false);
 
@@ -112,6 +116,26 @@ export function Sidebar({
               <span className="absolute right-2 top-2 text-[9px] text-[#a8a29e] pointer-events-none">↵</span>
             )}
           </div>
+
+          {/* Live OSINT Threat Intel Badge */}
+          {threatIntel && threatIntel.checked && (
+            <div className="mt-2 w-full">
+              {threatIntel.pwned ? (
+                <div
+                  title={`Exposed in: ${threatIntel.topBreaches.join(", ")}`}
+                  className="px-2 py-1 rounded-lg bg-[#fceee9] border border-[#e85d43]/30 text-[9px] text-[#e85d43] font-semibold text-center flex items-center justify-center gap-1 cursor-default"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#e85d43] animate-pulse shrink-0" />
+                  <span className="truncate">{threatIntel.breachCount} Leaks (OSINT)</span>
+                </div>
+              ) : (
+                <div className="px-2 py-1 rounded-lg bg-[#e6f4f1] border border-[#359381]/30 text-[9px] text-[#359381] font-semibold text-center flex items-center justify-center gap-1 cursor-default">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#359381] shrink-0" />
+                  <span>0 Public Leaks (Clean)</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Navigation Items - Every single button triggers a live action */}
