@@ -1,89 +1,252 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { ArrowUpRight, CheckCircle2, AlertTriangle, ShieldCheck } from "lucide-react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowUpRight, Check, ShieldCheck, Terminal, Copy, Lock, ShieldAlert, CheckCircle2 } from "lucide-react";
 import { SimulationResult } from "../types";
 
-const STEP_ICONS = [ShieldCheck, AlertTriangle, CheckCircle2];
-const STEP_COLORS = [
-  { ring: "#22c55e", bg: "rgba(34,197,94,0.12)", text: "#4ade80" },
-  { ring: "#f97316", bg: "rgba(249,115,22,0.1)",  text: "#fb923c" },
-  { ring: "#a78bfa", bg: "rgba(167,139,250,0.1)", text: "#c4b5fd" },
+const PLAYBOOK_PRIORITIES = [
+  {
+    tier: "1. CRITICAL",
+    priority: "P0 Priority",
+    color: "#ef4444",
+    border: "rgba(239, 68, 68, 0.4)",
+    bg: "rgba(239, 68, 68, 0.08)",
+  },
+  {
+    tier: "2. HIGH",
+    priority: "P1 Priority",
+    color: "#06b6d4",
+    border: "rgba(6, 182, 212, 0.4)",
+    bg: "rgba(6, 182, 212, 0.08)",
+  },
+  {
+    tier: "3. HIGH",
+    priority: "P1 Priority",
+    color: "#f59e0b",
+    border: "rgba(245, 158, 11, 0.4)",
+    bg: "rgba(245, 158, 11, 0.08)",
+  },
+  {
+    tier: "4. MEDIUM",
+    priority: "P2 Priority",
+    color: "#10b981",
+    border: "rgba(16, 185, 129, 0.4)",
+    bg: "rgba(16, 185, 129, 0.08)",
+  },
 ];
 
-export function Playbook({ items }: { items: SimulationResult["playbook"] }) {
-  return (
-    <div className="glass rounded-2xl p-5">
-      <div className="flex items-center justify-between mb-1">
-        <div className="text-xs uppercase tracking-[0.2em] text-zinc-500">03 · Lockdown playbook</div>
-        <div className="text-xs text-zinc-600 font-mono">3 actions</div>
-      </div>
-      <div className="mt-1 text-sm text-zinc-300">Execute in order — fastest path to containment</div>
+const CLI_SCRIPT = `# Execute DominoGuard Containment Pipeline
+dominoguard-cli revoke \\
+  --identity "devops-admin@mesh.internal" \\
+  --kill-sessions all \\
+  --aws-role "AdminSecOpsMaster" \\
+  --enforce-fido2 \\
+  --treasury-lockout true
 
-      <div className="mt-5 flex flex-col gap-3">
-        {items.slice(0, 3).map((item, index) => {
-          const colors = STEP_COLORS[index] ?? STEP_COLORS[2];
-          const Icon = STEP_ICONS[index] ?? CheckCircle2;
-          return (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, x: -16 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.15, duration: 0.4, type: "spring" }}
-            >
-              <div
-                className="rounded-xl p-4 border transition-all duration-200 hover:scale-[1.01]"
-                style={{ background: colors.bg, borderColor: colors.ring + "40" }}
+[*] [OK] 14 OAuth tokens invalidated in 218ms
+[*] [OK] Perimeter isolation active.`;
+
+export function Playbook({ items }: { items: SimulationResult["playbook"] }) {
+  const [checkedItems, setCheckedItems] = useState<Record<number, boolean>>({
+    0: true,
+    1: true,
+  });
+  const [contained, setContained] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  function toggleCheck(idx: number) {
+    setCheckedItems((prev) => ({ ...prev, [idx]: !prev[idx] }));
+  }
+
+  function handleContainment() {
+    setContained(true);
+    setCheckedItems({ 0: true, 1: true, 2: true, 3: true });
+    setTimeout(() => {
+      // Keep contained state active
+    }, 4000);
+  }
+
+  function copyScript() {
+    navigator.clipboard.writeText(CLI_SCRIPT);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Remediation Playbook Card */}
+      <div className="relative flex flex-col rounded-2xl bg-[#0c0e17]/85 border border-white/[0.08] backdrop-blur-xl p-4 sm:p-5 shadow-2xl overflow-hidden">
+        {/* Top Accent Strip */}
+        <div className="h-[2px] w-full absolute top-0 left-0 bg-[#10b981]" />
+
+        <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
+          <div className="flex items-center gap-2">
+            <ShieldCheck size={18} className="text-[#10b981]" />
+            <h3 className="font-heading text-sm font-bold text-white tracking-wide">
+              Defensive Containment Playbook
+            </h3>
+          </div>
+          <span className="font-code text-[10px] text-[#10b981] bg-[#10b981]/10 border border-[#10b981]/30 px-2 py-0.5 rounded font-semibold">
+            AUTOMATED TRIAGE
+          </span>
+        </div>
+
+        <p className="mt-2 text-[11px] leading-relaxed text-zinc-400">
+          Prioritized sequence to arrest lateral blast radius and isolate breached tokens:
+        </p>
+
+        {/* Ordered Action Checklist */}
+        <div className="flex flex-col gap-2.5 my-3">
+          {items.map((item, index) => {
+            const priority = PLAYBOOK_PRIORITIES[index] ?? PLAYBOOK_PRIORITIES[1];
+            const isChecked = !!checkedItems[index];
+
+            return (
+              <label
+                key={index}
+                onClick={() => toggleCheck(index)}
+                className="group relative flex items-start gap-3 rounded-xl border p-2.5 sm:p-3 cursor-pointer transition-all duration-150 hover:scale-[1.01]"
+                style={{
+                  background: isChecked ? priority.bg : "rgba(12, 14, 23, 0.6)",
+                  borderColor: isChecked ? priority.border : "rgba(255, 255, 255, 0.06)",
+                }}
               >
-                <div className="flex gap-3">
-                  {/* Step number circle */}
-                  <div className="shrink-0">
-                    <div
-                      className="h-8 w-8 rounded-full grid place-items-center text-xs font-bold border-2"
+                {/* Custom Checkbox */}
+                <div
+                  className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all"
+                  style={{
+                    background: isChecked ? priority.color : "rgba(0, 0, 0, 0.5)",
+                    borderColor: isChecked ? priority.color : "rgba(255, 255, 255, 0.2)",
+                  }}
+                >
+                  {isChecked && <Check size={12} className="text-[#07080d] stroke-[3]" />}
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-1">
+                    <span
+                      className="font-code text-[9px] font-bold px-1.5 py-0.2 rounded border"
                       style={{
-                        borderColor: colors.ring,
-                        background: colors.bg,
-                        color: colors.text,
-                        boxShadow: `0 0 12px ${colors.ring}40`,
+                        color: priority.color,
+                        borderColor: priority.border,
+                        background: `${priority.color}15`,
                       }}
                     >
-                      {index + 1}
-                    </div>
+                      {priority.tier}
+                    </span>
+                    <span className="font-code text-[9px] text-zinc-500">{priority.priority}</span>
                   </div>
 
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="text-sm font-semibold text-zinc-100">{item.title}</div>
-                      <Icon size={14} style={{ color: colors.text }} className="shrink-0 mt-0.5" />
-                    </div>
-                    <div className="mt-1.5 text-xs leading-5 text-zinc-400">{item.description}</div>
-                    {item.actionUrl && (
-                      <a
-                        href={item.actionUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-3 inline-flex items-center gap-1 text-xs font-medium rounded-lg px-2.5 py-1.5 border transition-all duration-150 hover:scale-105"
-                        style={{
-                          color: colors.text,
-                          borderColor: colors.ring + "40",
-                          background: colors.bg,
-                        }}
-                      >
-                        Open security settings <ArrowUpRight size={11} />
-                      </a>
-                    )}
-                  </div>
+                  <span
+                    className={`font-heading text-xs font-semibold block mt-1 transition-colors ${
+                      isChecked ? "text-white line-through opacity-80" : "text-white"
+                    }`}
+                  >
+                    {item.title}
+                  </span>
+
+                  <span className="text-[11px] leading-tight text-zinc-400 block mt-0.5">
+                    {item.description}
+                  </span>
+
+                  {item.actionUrl && (
+                    <a
+                      href={item.actionUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-2 inline-flex items-center gap-1 font-code text-[10px] text-[#06b6d4] hover:text-white transition-colors"
+                    >
+                      <span>Open console settings</span>
+                      <ArrowUpRight size={11} />
+                    </a>
+                  )}
                 </div>
-              </div>
-            </motion.div>
-          );
-        })}
+              </label>
+            );
+          })}
+        </div>
+
+        {/* One-Click Automated Containment CTA */}
+        <button
+          onClick={handleContainment}
+          className={`w-full py-3 px-4 rounded-xl font-heading text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98] ${
+            contained
+              ? "bg-[#10b981] text-[#07080d] shadow-[0_0_20px_rgba(16,185,129,0.5)]"
+              : "bg-gradient-to-r from-[#10b981] to-[#06b6d4] hover:brightness-110 text-[#07080d] shadow-[0_0_22px_rgba(16,185,129,0.35)]"
+          }`}
+        >
+          {contained ? (
+            <>
+              <CheckCircle2 size={16} className="text-[#07080d]" />
+              <span>Perimeter Containment Active (14 Tokens Revoked)</span>
+            </>
+          ) : (
+            <>
+              <Lock size={15} className="text-[#07080d]" />
+              <span>One-Click Automated Containment</span>
+            </>
+          )}
+        </button>
+
+        {contained && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            className="mt-2 p-2 rounded-lg bg-[#10b981]/15 border border-[#10b981]/40 font-code text-[10px] text-[#10b981] text-center"
+          >
+            ✓ Cryptographic perimeter lock enforced. Active sessions terminated across Google, AWS IAM & Bank rails.
+          </motion.div>
+        )}
       </div>
 
-      {/* Footer note */}
-      <div className="mt-4 pt-4 border-t border-white/5 text-[10px] text-zinc-600 leading-4">
-        These actions are defensive recommendations based on the simulated cascade above. Prioritise step 1 before proceeding.
+      {/* CLI Quarantine Terminal Box */}
+      <div className="rounded-2xl bg-[#0c0e17]/85 border border-white/[0.08] backdrop-blur-xl p-3.5 sm:p-4 shadow-2xl flex flex-col">
+        <div className="flex items-center justify-between pb-2 border-b border-white/[0.08]">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-[#ef4444]" />
+              <span className="h-2 w-2 rounded-full bg-[#f59e0b]" />
+              <span className="h-2 w-2 rounded-full bg-[#10b981]" />
+            </div>
+            <span className="font-code text-[11px] text-zinc-400">quarantine-isolate.sh</span>
+          </div>
+          <button
+            onClick={copyScript}
+            className="flex items-center gap-1 font-code text-[10px] text-[#06b6d4] hover:text-white transition-colors"
+          >
+            <Copy size={12} />
+            <span>{copied ? "Copied!" : "Copy CLI"}</span>
+          </button>
+        </div>
+
+        {/* Code Block */}
+        <pre className="mt-2.5 p-3 rounded-lg bg-[#040508] border border-white/[0.06] font-code text-[11px] text-zinc-300 overflow-x-auto custom-scroll leading-relaxed">
+          <span className="text-zinc-500"># Execute DominoGuard Containment Pipeline</span>{"\n"}
+          <span className="text-[#06b6d4]">dominoguard-cli</span> revoke \{"\n"}
+          {"  "}--identity <span className="text-[#f59e0b]">"devops-admin@mesh.internal"</span> \{"\n"}
+          {"  "}--kill-sessions <span className="text-[#10b981]">all</span> \{"\n"}
+          {"  "}--aws-role <span className="text-[#ef4444]">"AdminSecOpsMaster"</span> \{"\n"}
+          {"  "}--enforce-fido2 \{"\n"}
+          {"  "}--treasury-lockout <span className="text-[#06b6d4]">true</span>{"\n\n"}
+          <span className="text-[#10b981]">[*] [OK] 14 OAuth tokens invalidated in 218ms</span>{"\n"}
+          <span className="text-[#10b981]">[*] [OK] Perimeter isolation active.</span>
+        </pre>
+      </div>
+
+      {/* MITRE ATT&CK v14.1 Status Card */}
+      <div className="p-3 rounded-xl bg-[#07080d]/80 border border-white/[0.08] flex items-center justify-between text-xs font-code">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-[#06b6d4]" />
+          <span className="text-zinc-400">MITRE Framework:</span>
+          <span className="text-white font-medium">ATT&CK v14.1</span>
+        </div>
+        <span className="text-[#10b981] font-semibold flex items-center gap-1">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#10b981]" />
+          Synced
+        </span>
       </div>
     </div>
   );

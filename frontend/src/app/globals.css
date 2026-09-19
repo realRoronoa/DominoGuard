@@ -2,35 +2,103 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+:root {
+  color-scheme: dark;
+  --font-inter: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --font-space-grotesk: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
 
-:root { color-scheme: dark; }
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  background: #050608;
-  color: #f4f4f5;
-  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background-color: #07080d;
+  color: #f1f5f9;
+  font-family: var(--font-inter);
+}
+
+.font-heading {
+  font-family: var(--font-space-grotesk);
+}
+
+.font-code {
+  font-family: var(--font-mono);
 }
 
 button, input, select { font: inherit; }
 
-/* Glass morphism */
+/* Obsidian Sentinel Cyber Glassmorphism */
 .glass {
-  background: rgba(15, 17, 22, 0.74);
-  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(12, 14, 23, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }
 
-/* Grid background */
+.glass-card {
+  background: rgba(18, 22, 36, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.glass-panel {
+  background: rgba(12, 14, 23, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+/* High-tech tactical grid background */
 .grid-bg {
-  background-color: #050608;
+  background-color: #07080d;
   background-image:
-    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
-  background-size: 28px 28px;
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(6, 182, 212, 0.07), transparent),
+    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 100% 100%, 32px 32px, 32px 32px;
+}
+
+/* Attack path animated flow lines */
+@keyframes dash {
+  to {
+    stroke-dashoffset: -40;
+  }
+}
+
+.attack-flow-line {
+  stroke-dasharray: 6, 6;
+  animation: dash 1.6s linear infinite;
+}
+
+/* Pulse glows */
+@keyframes pulse-crimson {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    border-color: rgba(239, 68, 68, 0.8);
+  }
+  50% {
+    box-shadow: 0 0 20px 4px rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.4);
+  }
+}
+
+.severity-critical {
+  animation: pulse-crimson 2.2s infinite;
+}
+
+@keyframes pulse-cyan {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(6, 182, 212, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 16px 2px rgba(6, 182, 212, 0.25);
+  }
+}
+
+.beacon-cyan {
+  animation: pulse-cyan 2s infinite;
 }
 
 /* Shimmer skeleton animation */
@@ -43,51 +111,12 @@ button, input, select { font: inherit; }
   background: linear-gradient(
     90deg,
     rgba(255,255,255,0.03) 25%,
-    rgba(255,255,255,0.07) 50%,
+    rgba(6,182,212,0.08) 50%,
     rgba(255,255,255,0.03) 75%
   );
   background-size: 1000px 100%;
   animation: shimmer 2s infinite linear;
   border-radius: 0.75rem;
-}
-
-/* Pulse glow for severity badges */
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.3); }
-  50% { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
-}
-
-.severity-critical { animation: pulse-glow 2s infinite; }
-
-/* Score arc stroke animation */
-@keyframes arc-fill {
-  from { stroke-dashoffset: 440; }
-}
-
-/* Node pop animation for cascade graph */
-@keyframes node-pop {
-  0% { transform: scale(0.6); opacity: 0; }
-  70% { transform: scale(1.08); }
-  100% { transform: scale(1); opacity: 1; }
-}
-
-/* Edge draw animation */
-@keyframes edge-draw {
-  from { stroke-dashoffset: 500; }
-  to { stroke-dashoffset: 0; }
-}
-
-/* Gradient text */
-.gradient-text {
-  background: linear-gradient(135deg, #fff 0%, #a1a1aa 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Subtle glow for selected items */
-.selected-glow {
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.15), 0 4px 20px rgba(0,0,0,0.4);
 }
 
 /* Agent trace dots */
@@ -100,8 +129,22 @@ button, input, select { font: inherit; }
 .agent-dot:nth-child(2) { animation: agent-blink 1.2s infinite 0.2s; }
 .agent-dot:nth-child(3) { animation: agent-blink 1.2s infinite 0.4s; }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+/* Custom High-density Scrollbar */
+.custom-scroll::-webkit-scrollbar,
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scroll::-webkit-scrollbar-track,
+::-webkit-scrollbar-track {
+  background: rgba(12, 14, 23, 0.5);
+}
+.custom-scroll::-webkit-scrollbar-thumb,
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+.custom-scroll::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:hover {
+  background: #06b6d4;
+}
