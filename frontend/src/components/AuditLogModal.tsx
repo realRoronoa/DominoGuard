@@ -1,226 +1,236 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, Copy, Check, Terminal, Shield, Cpu, Activity, Clock } from "lucide-react";
-import { SimulationResult } from "../types";
+import { AgentMode, SimulationResult, ThreatScenario } from "../types";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
   result: SimulationResult | null;
+  scenario: ThreatScenario;
 }
 
-export function AuditLogModal({ isOpen, onClose, result }: Props) {
+const MODE_STYLE: Record<AgentMode, { dot: string; bg: string; fg: string; label: string }> = {
+  bedrock: { dot: "#359381", bg: "#e6f4f1", fg: "#2d7a6a", label: "BEDROCK" },
+  live: { dot: "#3ea6c8", bg: "#e8f1f6", fg: "#2b6f8a", label: "LIVE LOOKUP" },
+  fallback: { dot: "#e59b38", bg: "#fef5ea", fg: "#b9762a", label: "FALLBACK" },
+  disabled: { dot: "#a8a29e", bg: "#f4ede4", fg: "#78716c", label: "NO MODEL" },
+  error: { dot: "#e85d43", bg: "#fceee9", fg: "#c94a31", label: "ERROR" },
+};
+
+/**
+ * Reference mapping only. These are the techniques each scenario is *modelled
+ * on* — DominoGuard does not observe your accounts and cannot detect activity.
+ */
+const TECHNIQUES: Record<ThreatScenario, { id: string; name: string; tactic: string }[]> = {
+  email_compromise: [
+    { id: "T1586.002", name: "Compromise Accounts: Email Accounts", tactic: "Resource Development" },
+    { id: "T1098.005", name: "Account Manipulation: Device Registration", tactic: "Persistence" },
+    { id: "T1114.002", name: "Email Collection: Remote Email Collection", tactic: "Collection" },
+  ],
+  sim_swap: [
+    { id: "T1451", name: "SIM Card Swap", tactic: "Credential Access (Mobile)" },
+    { id: "T1111", name: "Multi-Factor Authentication Interception", tactic: "Credential Access" },
+    { id: "T1098.005", name: "Account Manipulation: Device Registration", tactic: "Persistence" },
+  ],
+  oauth_hijack: [
+    { id: "T1539", name: "Steal Web Session Cookie", tactic: "Credential Access" },
+    { id: "T1550.001", name: "Use Alternate Material: Application Access Token", tactic: "Lateral Movement" },
+    { id: "T1528", name: "Steal Application Access Token", tactic: "Credential Access" },
+  ],
+};
+
+export function AuditLogModal({ isOpen, onClose, result, scenario }: Props) {
   const [activeTab, setActiveTab] = useState<"trace" | "mitre" | "raw">("trace");
   const [copied, setCopied] = useState(false);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
-  const mitreTechniques = [
-    { id: "T1078.004", name: "Valid Accounts: Cloud Accounts", tactic: "Defense Evasion / Initial Access", severity: "CRITICAL" },
-    { id: "T1114.002", name: "Email Collection: Remote Email", tactic: "Collection", severity: "HIGH" },
-    { id: "T1539", name: "Steal Web Session Cookie", tactic: "Credential Access", severity: "CRITICAL" },
-    { id: "T1556.006", name: "Modify Authentication: Multi-Factor", tactic: "Persistence", severity: "HIGH" },
-  ];
-
-  function copyRaw() {
-    navigator.clipboard.writeText(JSON.stringify(result, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  async function copyRaw() {
+    try {
+      await navigator.clipboard.writeText(JSON.stringify(result, null, 2));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard access needs a secure context; leave the button state alone
+      // rather than claiming a copy that did not happen.
+    }
   }
 
+  const intel = result?.threatIntel;
+
+  const tabs = [
+    { id: "trace" as const, icon: <Activity size={13} />, label: "Agent Trace" },
+    { id: "mitre" as const, icon: <Shield size={13} />, label: "Technique Reference" },
+    { id: "raw" as const, icon: <Cpu size={13} />, label: "Raw JSON" },
+  ];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl rounded-3xl bg-white p-6 sm:p-7 border border-[#e8dfd5] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-[#f4ede4] shrink-0">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        className="w-full max-w-2xl rounded-3xl bg-white p-6 sm:p-7 border border-[#e8dfd5] shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Audit log"
+      >
+        <div className="flex items-center justify-between gap-3 pb-4 border-b border-[#f4ede4] shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-[#fceee9] text-[#e85d43] flex items-center justify-center font-bold">
+            <div className="w-9 h-9 rounded-full bg-[#fceee9] text-[#e85d43] flex items-center justify-center shrink-0">
               <Terminal size={18} />
             </div>
             <div>
-              <h3 className="font-heading text-lg font-bold text-[#1c1917]">
-                Bedrock Multi-Agent Audit Log
-              </h3>
+              <h3 className="font-heading text-lg font-bold text-[#1c1917]">Audit Log</h3>
               <p className="text-xs text-[#78716c]">
-                Cryptographic trace & reasoning telemetry from AWS Bedrock pipeline
+                Exactly what each stage did, and whether the model was involved
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-[#f4ede4] hover:bg-[#e8dfd5] flex items-center justify-center text-[#78716c] transition-colors"
+            aria-label="Close"
+            className="w-8 h-8 rounded-full bg-[#f4ede4] hover:bg-[#e8dfd5] flex items-center justify-center text-[#78716c] transition-colors shrink-0"
           >
             <X size={15} />
           </button>
         </div>
 
-        {/* Tab Switcher */}
-        <div className="flex items-center gap-2 pt-4 pb-2 shrink-0">
-          <button
-            onClick={() => setActiveTab("trace")}
-            className={`px-3 py-1.5 rounded-xl font-heading text-xs font-bold transition-all flex items-center gap-1.5 ${
-              activeTab === "trace"
-                ? "bg-[#1c1917] text-white"
-                : "bg-[#f4ede4] text-[#78716c] hover:text-[#1c1917]"
-            }`}
-          >
-            <Activity size={13} />
-            <span>Agent Pipeline Trace</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("mitre")}
-            className={`px-3 py-1.5 rounded-xl font-heading text-xs font-bold transition-all flex items-center gap-1.5 ${
-              activeTab === "mitre"
-                ? "bg-[#1c1917] text-white"
-                : "bg-[#f4ede4] text-[#78716c] hover:text-[#1c1917]"
-            }`}
-          >
-            <Shield size={13} />
-            <span>MITRE ATT&CK Matrix</span>
-          </button>
-          <button
-            onClick={() => setActiveTab("raw")}
-            className={`px-3 py-1.5 rounded-xl font-heading text-xs font-bold transition-all flex items-center gap-1.5 ${
-              activeTab === "raw"
-                ? "bg-[#1c1917] text-white"
-                : "bg-[#f4ede4] text-[#78716c] hover:text-[#1c1917]"
-            }`}
-          >
-            <Cpu size={13} />
-            <span>Raw Telemetry JSON</span>
-          </button>
+        <div className="flex items-center gap-2 pt-4 pb-2 shrink-0 flex-wrap">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setActiveTab(t.id)}
+              className={`px-3 py-1.5 rounded-xl font-heading text-xs font-bold transition-all flex items-center gap-1.5 ${
+                activeTab === t.id
+                  ? "bg-[#1c1917] text-white"
+                  : "bg-[#f4ede4] text-[#78716c] hover:text-[#1c1917]"
+              }`}
+            >
+              {t.icon}
+              <span>{t.label}</span>
+            </button>
+          ))}
         </div>
 
-        {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto py-3 space-y-4 pr-1">
-          {activeTab === "trace" && (
-            <div className="space-y-3">
-              {/* Agent 0: Live OSINT Threat Intelligence */}
-              <div className="p-4 rounded-2xl bg-[#faf8f5] border border-[#e8dfd5] space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full ${result?.threatIntel?.pwned ? "bg-[#e85d43]" : "bg-[#359381]"}`} />
-                    <span className="font-heading text-xs font-bold text-[#1c1917]">
-                      Live OSINT Breach Intelligence ({result?.threatIntel?.source ?? "XposedOrNot Free Feed"})
-                    </span>
+        <div className="flex-1 overflow-y-auto py-3 space-y-3 pr-1">
+          {!result && (
+            <p className="text-xs text-[#78716c] text-center py-10">
+              Run a simulation to populate the audit log.
+            </p>
+          )}
+
+          {result && activeTab === "trace" && (
+            <>
+              {result.agentTrace.map((agent) => {
+                const style = MODE_STYLE[agent.mode] ?? MODE_STYLE.error;
+                const tokens = agent.inputTokens + agent.outputTokens;
+                return (
+                  <div
+                    key={agent.name}
+                    className="p-4 rounded-2xl bg-[#faf8f5] border border-[#e8dfd5] space-y-2"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ background: style.dot }}
+                        />
+                        <span className="font-heading text-xs font-bold text-[#1c1917] truncate">
+                          {agent.name}
+                        </span>
+                      </div>
+                      <span
+                        className="text-[10px] font-code px-2 py-0.5 rounded font-bold shrink-0"
+                        style={{ background: style.bg, color: style.fg }}
+                      >
+                        {style.label} · {agent.latencyMs}ms
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-[#78716c] leading-relaxed">{agent.summary}</p>
+
+                    {agent.note && (
+                      <p className="text-[11px] text-[#a8a29e] italic leading-relaxed">{agent.note}</p>
+                    )}
+
+                    <div className="text-[10px] font-code text-[#a8a29e] bg-white p-2 rounded-xl border border-[#f0e7dd]">
+                      {tokens > 0
+                        ? `Input tokens: ${agent.inputTokens} | Output tokens: ${agent.outputTokens}`
+                        : "No model tokens consumed by this stage."}
+                    </div>
                   </div>
-                  <span className={`text-[10px] font-code px-2 py-0.5 rounded font-bold ${
-                    result?.threatIntel?.pwned ? "bg-[#fceee9] text-[#e85d43]" : "bg-[#e6f4f1] text-[#359381]"
-                  }`}>
-                    {result?.threatIntel?.pwned ? `${result.threatIntel.breachCount} LEAKS DETECTED` : "0 LEAKS DETECTED"} · {result?.threatIntel?.latencyMs ?? 180}ms
-                  </span>
-                </div>
-                <p className="text-xs text-[#78716c]">
-                  {result?.threatIntel?.pwned
-                    ? `Public compromise records detected for ${result.threatIntel.email}: [${result.threatIntel.topBreaches.join(", ")}]. Credentials and identity anchors flagged.`
-                    : `No public breach records found for target identity. Zero credential leaks indexed across 800+ known breaches.`}
-                </p>
-                {result?.threatIntel?.pwned && result.threatIntel.topBreaches.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {result.threatIntel.topBreaches.map((b) => (
-                      <span key={b} className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-white border border-[#e8dfd5] text-[#1c1917]">
+                );
+              })}
+
+              {intel?.checked && intel.pwned && intel.topBreaches.length > 0 && (
+                <div className="p-4 rounded-2xl bg-white border border-[#e8dfd5] space-y-2">
+                  <div className="font-heading text-xs font-bold text-[#1c1917]">
+                    Breaches named for {intel.email}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {intel.topBreaches.map((b) => (
+                      <span
+                        key={b}
+                        className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-[#faf8f5] border border-[#e8dfd5] text-[#1c1917]"
+                      >
                         {b}
                       </span>
                     ))}
                   </div>
-                )}
-              </div>
-
-              {/* Agent 1 */}
-              <div className="p-4 rounded-2xl bg-[#faf8f5] border border-[#e8dfd5] space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#359381]" />
-                    <span className="font-heading text-xs font-bold text-[#1c1917]">
-                      Agent 1: Topology Mapper (Anthropic Claude 3.5 Haiku)
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-code px-2 py-0.5 rounded bg-[#e6f4f1] text-[#359381] font-bold">
-                    COMPLETED in 412ms
-                  </span>
+                  <p className="text-[11px] text-[#78716c]">
+                    Historical disclosures from {intel.source}. This is not proof that the account is
+                    compromised today.
+                  </p>
                 </div>
-                <p className="text-xs text-[#78716c]">
-                  Constructed 6-node directed acyclic graph mapping identity recovery paths across primary SSO, session storage, and MFA bindings.
-                </p>
-                <div className="text-[10px] font-code text-[#a8a29e] bg-white p-2 rounded-xl border border-[#f0e7dd]">
-                  Prompt Tokens: 420 | Completion Tokens: 184 | Cost: $0.00031
-                </div>
-              </div>
-
-              {/* Agent 2 */}
-              <div className="p-4 rounded-2xl bg-[#faf8f5] border border-[#e8dfd5] space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#e85d43]" />
-                    <span className="font-heading text-xs font-bold text-[#1c1917]">
-                      Agent 2: Red-Team Lateral Escalation Engine
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-code px-2 py-0.5 rounded bg-[#fceee9] text-[#e85d43] font-bold">
-                    CRITICAL RISK SCORE: {result?.score ?? 97}/100
-                  </span>
-                </div>
-                <p className="text-xs text-[#78716c]">
-                  Simulated recursive blast propagation through OAuth trust delegation and verified high-privilege pivot into AWS Console without triggering rate-limiters.
-                </p>
-                <div className="text-[10px] font-code text-[#a8a29e] bg-white p-2 rounded-xl border border-[#f0e7dd]">
-                  Prompt Tokens: 612 | Completion Tokens: 245 | Cost: $0.00045
-                </div>
-              </div>
-
-              {/* Agent 3 */}
-              <div className="p-4 rounded-2xl bg-[#faf8f5] border border-[#e8dfd5] space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#e59b38]" />
-                    <span className="font-heading text-xs font-bold text-[#1c1917]">
-                      Agent 3: Remediation & Defensive Orchestrator
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-code px-2 py-0.5 rounded bg-[#fef5ea] text-[#e59b38] font-bold">
-                    3 ACTIONS SYNTHESIZED
-                  </span>
-                </div>
-                <p className="text-xs text-[#78716c]">
-                  Ranked defensive mitigations by mean time to contain (MTTC). Prioritized immediate SAML session revocation followed by hardware security key enforcement.
-                </p>
-                <div className="text-[10px] font-code text-[#a8a29e] bg-white p-2 rounded-xl border border-[#f0e7dd]">
-                  Prompt Tokens: 380 | Completion Tokens: 160 | Cost: $0.00028
-                </div>
-              </div>
-            </div>
+              )}
+            </>
           )}
 
-          {activeTab === "mitre" && (
+          {result && activeTab === "mitre" && (
             <div className="space-y-2.5">
-              {mitreTechniques.map((item) => (
+              <p className="text-[11px] text-[#78716c] leading-relaxed bg-[#faf8f5] border border-[#f0e7dd] rounded-xl p-3">
+                Reference only. These are the MITRE ATT&amp;CK techniques this scenario is modelled on.
+                DominoGuard does not monitor your accounts and has not detected any of them.
+              </p>
+              {TECHNIQUES[scenario].map((item) => (
                 <div
                   key={item.id}
-                  className="flex items-center justify-between p-3.5 rounded-2xl bg-[#faf8f5] border border-[#e8dfd5]"
+                  className="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#faf8f5] border border-[#e8dfd5]"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="font-code text-xs font-bold text-[#e85d43] px-2 py-1 rounded bg-[#fceee9]">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="font-code text-xs font-bold text-[#78716c] px-2 py-1 rounded bg-white border border-[#e8dfd5] shrink-0">
                       {item.id}
                     </span>
-                    <div>
-                      <div className="font-heading text-xs font-bold text-[#1c1917]">
+                    <div className="min-w-0">
+                      <div className="font-heading text-xs font-bold text-[#1c1917] truncate">
                         {item.name}
                       </div>
                       <div className="text-[10px] text-[#78716c]">{item.tactic}</div>
                     </div>
                   </div>
-                  <span className="text-[10px] font-heading font-bold text-[#e85d43]">
-                    {item.severity}
-                  </span>
                 </div>
               ))}
             </div>
           )}
 
-          {activeTab === "raw" && (
+          {result && activeTab === "raw" && (
             <div className="relative">
               <button
+                type="button"
                 onClick={copyRaw}
                 className="absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-[#292524] text-white text-[10px] font-code flex items-center gap-1 hover:bg-[#44403c] transition-colors"
               >
@@ -234,15 +244,21 @@ export function AuditLogModal({ isOpen, onClose, result }: Props) {
           )}
         </div>
 
-        {/* Footer */}
-        <div className="pt-3 border-t border-[#f4ede4] flex items-center justify-between shrink-0">
+        <div className="pt-3 border-t border-[#f4ede4] flex items-center justify-between gap-3 shrink-0">
           <div className="flex items-center gap-2 text-[11px] text-[#78716c]">
-            <Clock size={12} />
-            <span>Total Bedrock Pipeline Latency: 1.28s</span>
+            <Clock size={12} className="shrink-0" />
+            <span>
+              {result
+                ? `Total: ${(result.metrics.totalLatencyMs / 1000).toFixed(2)}s · ${
+                    result.metrics.inputTokens + result.metrics.outputTokens
+                  } tokens`
+                : "No run yet"}
+            </span>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl bg-[#f4ede4] hover:bg-[#e8dfd5] text-[#1c1917] font-heading text-xs font-bold transition-colors"
+            className="px-4 py-2 rounded-xl bg-[#f4ede4] hover:bg-[#e8dfd5] text-[#1c1917] font-heading text-xs font-bold transition-colors shrink-0"
           >
             Close
           </button>

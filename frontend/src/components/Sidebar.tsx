@@ -2,17 +2,16 @@
 
 import { useState, KeyboardEvent } from "react";
 import {
-  Shield,
   LayoutDashboard,
   Zap,
   Network,
   ShieldCheck,
   RotateCcw,
   Check,
-  ArrowRight,
+  ShieldQuestion,
 } from "lucide-react";
 
-import { ThreatIntel } from "../types";
+import { SimulationResult, ThreatIntel } from "../types";
 
 interface SidebarProps {
   activeTab: string;
@@ -24,6 +23,7 @@ interface SidebarProps {
   onOpenPlaybook: () => void;
   onScrollToAttackPath: () => void;
   threatIntel?: ThreatIntel;
+  metrics?: SimulationResult["metrics"];
 }
 
 export function Sidebar({
@@ -36,27 +36,23 @@ export function Sidebar({
   onOpenPlaybook,
   onScrollToAttackPath,
   threatIntel,
+  metrics,
 }: SidebarProps) {
   const [emailSaved, setEmailSaved] = useState(false);
 
   const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={17} />, hasBadge: true },
-    { id: "simulation", label: "Threat Engine", icon: <Zap size={17} /> },
-    { id: "cascade", label: "Attack Path", icon: <Network size={17} /> },
-    { id: "playbook", label: "Lockdown", icon: <ShieldCheck size={17} /> },
+    { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={17} /> },
+    { id: "simulation", label: "Run Simulation", icon: <Zap size={17} /> },
+    { id: "cascade", label: "Chain", icon: <Network size={17} /> },
+    { id: "playbook", label: "Lockdown Plan", icon: <ShieldCheck size={17} /> },
   ];
 
   function handleNavClick(id: string) {
     setActiveTab(id);
-    if (id === "dashboard") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    } else if (id === "simulation") {
-      onTriggerSimulation();
-    } else if (id === "cascade") {
-      onScrollToAttackPath();
-    } else if (id === "playbook") {
-      onOpenPlaybook();
-    }
+    if (id === "dashboard") window.scrollTo({ top: 0, behavior: "smooth" });
+    else if (id === "simulation") onTriggerSimulation();
+    else if (id === "cascade") onScrollToAttackPath();
+    else if (id === "playbook") onOpenPlaybook();
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -70,8 +66,8 @@ export function Sidebar({
   return (
     <aside className="w-full md:w-64 shrink-0 bg-[#f4ede4] p-5 sm:p-6 flex flex-col justify-between border-b md:border-b-0 md:border-r border-[#e8dfd5]">
       <div>
-        {/* Brand Logo with 4 colored squares (Crowz / Figma style) */}
         <button
+          type="button"
           onClick={() => handleNavClick("dashboard")}
           className="flex items-center gap-3 mb-8 text-left hover:opacity-80 transition-opacity"
         >
@@ -86,59 +82,75 @@ export function Sidebar({
           </span>
         </button>
 
-        {/* Profile Card (Robert Grant style) */}
+        {/* Optional breach check. Nothing runs here until the user types an address. */}
         <div className="mb-7 flex flex-col items-center text-center p-4 rounded-2xl bg-white/70 border border-[#e8dfd5] figma-shadow">
-          <div className="relative mb-2">
-            <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-[#f5a78c] to-[#e85d43] p-0.5">
-              <div className="w-full h-full rounded-full bg-[#fceee9] flex items-center justify-center text-xl font-bold text-[#e85d43]">
-                AC
-              </div>
-            </div>
-            <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-[#359381] border-2 border-white" />
+          <div className="w-12 h-12 rounded-full bg-[#fceee9] flex items-center justify-center text-[#e85d43] mb-2">
+            <ShieldQuestion size={22} />
           </div>
-          <div className="font-heading text-sm font-bold text-[#1c1917]">Alex Chen</div>
-          <div className="text-[11px] text-[#78716c] mt-0.5">SecOps Lead Analyst</div>
+          <div className="font-heading text-sm font-bold text-[#1c1917]">Breach check</div>
+          <div className="text-[11px] text-[#78716c] mt-0.5 leading-snug">
+            Optional. Your address is sent to a public breach database to look for past leaks.
+          </div>
 
-          {/* Email Target Input with Enter hint */}
-          <div className="mt-2 w-full relative">
+          <div className="mt-2.5 w-full relative">
+            <label htmlFor="intel-email" className="sr-only">
+              Email address to check against public breach records
+            </label>
             <input
-              type="text"
+              id="intel-email"
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={handleKeyDown}
-              title="Press Enter to simulate target email"
-              placeholder="name@domain.com"
+              title="Press Enter to check this address"
+              placeholder="you@example.com"
               className="w-full text-center text-[10px] font-code py-1.5 px-2 rounded-lg bg-white border border-[#e8dfd5] text-[#57534e] focus:outline-none focus:border-[#e85d43] pr-6"
             />
             {emailSaved ? (
               <Check size={12} className="absolute right-2 top-2 text-[#359381]" />
             ) : (
-              <span className="absolute right-2 top-2 text-[9px] text-[#a8a29e] pointer-events-none">↵</span>
+              <span className="absolute right-2 top-2 text-[9px] text-[#a8a29e] pointer-events-none">
+                ↵
+              </span>
             )}
           </div>
 
-          {/* Live OSINT Threat Intel Badge */}
-          {threatIntel && threatIntel.checked && (
+          {threatIntel && (
             <div className="mt-2 w-full">
-              {threatIntel.pwned ? (
-                <div
-                  title={`Exposed in: ${threatIntel.topBreaches.join(", ")}`}
-                  className="px-2 py-1 rounded-lg bg-[#fceee9] border border-[#e85d43]/30 text-[9px] text-[#e85d43] font-semibold text-center flex items-center justify-center gap-1 cursor-default"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#e85d43] animate-pulse shrink-0" />
-                  <span className="truncate">{threatIntel.breachCount} Leaks (OSINT)</span>
-                </div>
+              {threatIntel.checked ? (
+                threatIntel.pwned ? (
+                  <div
+                    title={`Named in: ${threatIntel.topBreaches.join(", ")}`}
+                    className="px-2 py-1 rounded-lg bg-[#fceee9] border border-[#e85d43]/30 text-[9px] text-[#e85d43] font-semibold text-center flex items-center justify-center gap-1 cursor-default"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#e85d43] shrink-0" />
+                    <span className="truncate">
+                      {threatIntel.breachCount} past breach
+                      {threatIntel.breachCount === 1 ? "" : "es"}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="px-2 py-1 rounded-lg bg-[#e6f4f1] border border-[#359381]/30 text-[9px] text-[#359381] font-semibold text-center flex items-center justify-center gap-1 cursor-default">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#359381] shrink-0" />
+                    <span>No public breach records</span>
+                  </div>
+                )
               ) : (
-                <div className="px-2 py-1 rounded-lg bg-[#e6f4f1] border border-[#359381]/30 text-[9px] text-[#359381] font-semibold text-center flex items-center justify-center gap-1 cursor-default">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#359381] shrink-0" />
-                  <span>0 Public Leaks (Clean)</span>
+                // An outage must not read as an all-clear.
+                <div
+                  title={threatIntel.unavailableReason}
+                  className="px-2 py-1 rounded-lg bg-[#f4ede4] border border-[#d6cec4] text-[9px] text-[#78716c] font-semibold text-center flex items-center justify-center gap-1 cursor-default"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#a8a29e] shrink-0" />
+                  <span className="truncate">
+                    {email ? "Check unavailable" : "Not checked"}
+                  </span>
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Navigation Items - Every single button triggers a live action */}
         <nav className="space-y-1">
           {navItems.map((item) => {
             const isActive = activeTab === item.id;
@@ -154,25 +166,24 @@ export function Sidebar({
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <span className={isActive ? "text-[#e85d43]" : "text-[#a8a29e]"}>
-                    {item.icon}
-                  </span>
+                  <span className={isActive ? "text-[#e85d43]" : "text-[#a8a29e]"}>{item.icon}</span>
                   <span>{item.label}</span>
                 </div>
-                {item.hasBadge && (
-                  <span className="w-2 h-2 rounded-full bg-[#e85d43]" />
-                )}
               </button>
             );
           })}
         </nav>
       </div>
 
-      {/* Bottom Status & Reset */}
       <div className="pt-6 border-t border-[#e8dfd5] space-y-3">
         <div className="flex items-center gap-2 px-2 text-[11px] text-[#78716c]">
-          <span className="w-2 h-2 rounded-full bg-[#359381] animate-pulse" />
-          <span>AWS Bedrock (Claude 3)</span>
+          <span
+            className="w-2 h-2 rounded-full shrink-0"
+            style={{ background: metrics?.bedrockEnabled ? "#359381" : "#a8a29e" }}
+          />
+          <span className="truncate" title={metrics?.modelId}>
+            {metrics ? (metrics.bedrockEnabled ? "Bedrock connected" : "Deterministic mode") : "Not connected"}
+          </span>
         </div>
 
         <button
@@ -181,7 +192,7 @@ export function Sidebar({
           className="flex w-full items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-[#78716c] hover:bg-white hover:text-[#1c1917] transition-colors"
         >
           <RotateCcw size={14} />
-          <span>Reset Simulation</span>
+          <span>Reset simulation</span>
         </button>
       </div>
     </aside>
